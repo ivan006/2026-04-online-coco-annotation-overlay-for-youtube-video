@@ -183,20 +183,23 @@ $(document).ready(function () {
       const col = colorMap[cat] || "#fff";
       ctx.strokeStyle = col;
       ctx.lineWidth = 2;
-      if (a.bbox) {
+      if (a.bbox && $("#show-boxes").is(":checked")) {
         const [x, y, w, h] = a.bbox;
         const dx = vidX + x * scaleX;
         const dy = vidY + y * scaleY;
         ctx.fillStyle = col + "28";
         ctx.fillRect(dx, dy, w * scaleX, h * scaleY);
         ctx.strokeRect(dx, dy, w * scaleX, h * scaleY);
-        if (showLabels) {
-          const fs = Math.max(11, Math.round(12 * Math.min(scaleX, scaleY)));
-          ctx.font = `bold ${fs}px monospace`;
-          ctx.fillStyle = col;
-          const ty = dy > 14 ? dy - 4 : dy + fs + 2;
-          ctx.fillText(cat, dx + 3, ty);
-        }
+      }
+      if (a.bbox && showLabels) {
+        const [x, y, w, h] = a.bbox;
+        const dx = vidX + x * scaleX;
+        const dy = vidY + y * scaleY;
+        const fs = Math.max(11, Math.round(12 * Math.min(scaleX, scaleY)));
+        ctx.font = `bold ${fs}px monospace`;
+        ctx.fillStyle = col;
+        const ty = dy > 14 ? dy - 4 : dy + fs + 2;
+        ctx.fillText(cat, dx + 3, ty);
       }
       // polygon segmentation
       if (Array.isArray(a.segmentation) && a.segmentation.length) {
@@ -215,8 +218,8 @@ $(document).ready(function () {
           ctx.stroke();
         });
       }
-      // RLE segmentation — use pre-cached edge pixels
-      if (a._rleEdges) {
+      // RLE segmentation — use pre-cached contours
+      if (a._rleEdges && $("#show-masks").is(":checked")) {
         drawRLEEdges(ctx, a._rleEdges, col, vidX, vidY, targetW, targetH);
       }
     });
