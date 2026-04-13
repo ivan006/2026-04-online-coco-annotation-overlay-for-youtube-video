@@ -112,6 +112,49 @@
       >
     </div>
 
+    <div id="scale-bar" class="d-none mt-3">
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <label class="text-secondary small" style="min-width: 100px"
+          >Scale X</label
+        >
+        <input
+          type="range"
+          id="scale-x"
+          min="0.1"
+          max="3"
+          step="0.01"
+          value="1"
+          class="form-range flex-grow-1"
+        />
+        <span
+          id="scale-x-val"
+          class="text-secondary small"
+          style="min-width: 35px"
+          >1.00</span
+        >
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <label class="text-secondary small" style="min-width: 100px"
+          >Scale Y</label
+        >
+        <input
+          type="range"
+          id="scale-y"
+          min="0.1"
+          max="3"
+          step="0.01"
+          value="1"
+          class="form-range flex-grow-1"
+        />
+        <span
+          id="scale-y-val"
+          class="text-secondary small"
+          style="min-width: 35px"
+          >1.00</span
+        >
+      </div>
+    </div>
+
     <div id="legend" class="d-flex flex-wrap gap-2 mt-2"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
@@ -138,6 +181,8 @@
       let ytReady = false,
         seeking = false,
         rafId = null;
+      let scaleX = 1,
+        scaleY = 1;
 
       function setStatus(msg) {
         $("#status").text(msg);
@@ -235,10 +280,10 @@
         }
 
         const showLabels = $("#show-labels").is(":checked");
-        const refW = cocoData.images?.[0]?.width || 512;
-        const refH = cocoData.images?.[0]?.height || 512;
-        const scaleX = canvas.width / refW;
-        const scaleY = canvas.height / refH;
+        const refW = 1280;
+        const refH = 590;
+        const baseScaleX = (canvas.width / refW) * scaleX;
+        const baseScaleY = (canvas.height / refH) * scaleY;
 
         $.each(anns, (_, a) => {
           const cat = catMap[a.category_id] || String(a.category_id);
@@ -248,17 +293,30 @@
           if (a.bbox) {
             const [x, y, w, h] = a.bbox;
             ctx.fillStyle = col + "28";
-            ctx.fillRect(x * scaleX, y * scaleY, w * scaleX, h * scaleY);
-            ctx.strokeRect(x * scaleX, y * scaleY, w * scaleX, h * scaleY);
+            ctx.fillRect(
+              x * baseScaleX,
+              y * baseScaleY,
+              w * baseScaleX,
+              h * baseScaleY,
+            );
+            ctx.strokeRect(
+              x * baseScaleX,
+              y * baseScaleY,
+              w * baseScaleX,
+              h * baseScaleY,
+            );
             if (showLabels) {
               const fs = Math.max(
                 11,
-                Math.round(12 * Math.min(scaleX, scaleY)),
+                Math.round(12 * Math.min(baseScaleX, baseScaleY)),
               );
               ctx.font = `bold ${fs}px monospace`;
               ctx.fillStyle = col;
-              const ty = y * scaleY > 14 ? y * scaleY - 4 : y * scaleY + fs + 2;
-              ctx.fillText(cat, x * scaleX + 3, ty);
+              const ty =
+                y * baseScaleY > 14
+                  ? y * baseScaleY - 4
+                  : y * baseScaleY + fs + 2;
+              ctx.fillText(cat, x * baseScaleX + 3, ty);
             }
           }
           if (Array.isArray(a.segmentation) && a.segmentation.length) {
@@ -268,9 +326,9 @@
             $.each(segs, (_, seg) => {
               if (!Array.isArray(seg) || seg.length < 6) return;
               ctx.beginPath();
-              ctx.moveTo(seg[0] * scaleX, seg[1] * scaleY);
+              ctx.moveTo(seg[0] * baseScaleX, seg[1] * baseScaleY);
               for (let i = 2; i < seg.length; i += 2)
-                ctx.lineTo(seg[i] * scaleX, seg[i + 1] * scaleY);
+                ctx.lineTo(seg[i] * baseScaleX, seg[i + 1] * baseScaleY);
               ctx.closePath();
               ctx.fillStyle = col + "44";
               ctx.fill();
@@ -318,6 +376,7 @@
             );
             $("#video-wrap").removeClass("d-none");
             $("#ctrl-bar").removeClass("d-none");
+            $("#scale-bar").removeClass("d-none");
             fps = parseFloat($("#fps").val()) || 30;
             const tryInit = () => {
               if (!ytReady || typeof YT === "undefined") {
@@ -341,7 +400,15 @@
           .fail((_, __, err) => setStatus("Failed to load JSON: " + err));
       });
 
-      $("#play-btn").on("click", () => player && player.playVideo());
+      $("#scale-x").on("input", function () {
+        scaleX = parseFloat($(this).val());
+        $("#scale-x-val").text(scaleX.toFixed(2));
+      });
+      $("#scale-y").on("input", function () {
+        scaleY = parseFloat($(this).val());
+        $("#scale-y-val").text(scaleY.toFixed(2));
+      });
+
       $("#pause-btn").on("click", () => player && player.pauseVideo());
       $("#seek")
         .on("mousedown", () => {
