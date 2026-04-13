@@ -234,8 +234,10 @@ $(document).ready(function () {
         const frameNums = Object.keys(annsByFrame)
           .map(Number)
           .sort((a, b) => a - b);
+        const maxFrame = frameNums[frameNums.length - 1];
+        const calcDuration = (maxFrame / fps).toFixed(2);
         setStatus(
-          `Loaded ${(data.annotations || []).length} annotations · ${frameNums.length} frames · range ${frameNums[0]}–${frameNums[frameNums.length - 1]}`,
+          `Loaded ${(data.annotations || []).length} annotations · ${frameNums.length} frames · range ${frameNums[0]}–${maxFrame} · calc length ${calcDuration}s at ${fps}fps`,
         );
         $("#ctrl-bar").removeClass("d-none");
         $("#video-wrap").removeClass("d-none");
@@ -252,6 +254,14 @@ $(document).ready(function () {
             events: {
               onReady: () => {
                 syncPlayerSize();
+                const frameNums = Object.keys(annsByFrame).map(Number);
+                const maxFrame = Math.max(...frameNums);
+                const dur = player.getDuration();
+                if (dur > 0) {
+                  fps = maxFrame / dur;
+                  $("#fps").val(Math.round(fps));
+                  $("#fps-slider").val(Math.round(fps));
+                }
                 if (rafId) cancelAnimationFrame(rafId);
                 tick();
               },
