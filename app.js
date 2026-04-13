@@ -256,6 +256,15 @@ $("#load-btn").on("click", function () {
           events: {
             onReady: () => {
               syncPlayerSize();
+              const frameNums = Object.keys(annsByFrame).map(Number);
+              const maxFrame = Math.max(...frameNums);
+              const dur = player.getDuration();
+              if (dur > 0) {
+                const inferredFps = Math.round(maxFrame / dur);
+                fps = inferredFps;
+                $("#fps").val(inferredFps);
+                $("#fps-slider").val(inferredFps);
+              }
               if (rafId) cancelAnimationFrame(rafId);
               tick();
             },
