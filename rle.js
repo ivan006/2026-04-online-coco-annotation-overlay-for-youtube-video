@@ -1,4 +1,5 @@
-// COCO RLE decoder — pre-caches edge pixels at load time for fast per-frame drawing
+// COCO RLE decoder with contour tracing (like cv2.findContours CHAIN_APPROX_SIMPLE)
+// Decode once at load, draw as canvas paths every frame — very fast
 
 function decodeRLEString(s) {
   const cnts = [];
@@ -23,14 +24,10 @@ function decodeRLEString(s) {
   return cnts;
 }
 
-// Returns { edges: Int16Array of [col, row, col, row...], w, h }
-// Call once at load time per annotation
-function decodeRLEEdges(segmentation) {
+function decodeRLEMask(segmentation) {
   const { counts, size } = segmentation;
   const [h, w] = size;
   const cnts = typeof counts === "string" ? decodeRLEString(counts) : counts;
-
-  // decode into mask
   const mask = new Uint8Array(h * w);
   let idx = 0,
     val = 0;
@@ -41,67 +38,114 @@ function decodeRLEEdges(segmentation) {
     idx = end;
     val ^= 1;
   }
-
-  // extract edge pixels (column-major: index = col*h + row)
-  const edgeCols = [];
-  const edgeRows = [];
-  for (let col = 0; col < w; col++) {
-    for (let row = 0; row < h; row++) {
-      if (mask[col * h + row]) {
-        if (
-          col === 0 ||
-          col === w - 1 ||
-          row === 0 ||
-          row === h - 1 ||
-          !mask[(col - 1) * h + row] ||
-          !mask[(col + 1) * h + row] ||
-          !mask[col * h + (row - 1)] ||
-          !mask[col * h + (row + 1)]
-        ) {
-          edgeCols.push(col);
-          edgeRows.push(row);
-        }
-      }
-    }
-  }
-
-  const edges = new Int16Array(edgeCols.length * 2);
-  for (let i = 0; i < edgeCols.length; i++) {
-    edges[i * 2] = edgeCols[i];
-    edges[i * 2 + 1] = edgeRows[i];
-  }
-
-  return { edges, w, h };
+  return { mask, h, w };
 }
 
-// Draw pre-cached edges onto canvas — called every frame tick
+// Simple contour tracer — returns array of contours, each contour is [x0,y0, x1,y1, ...]
+// Uses square-tracing algorithm on the column-major mask
+function traceContours(mask, h, w) {
+  // convert to row-major for easier neighbour access
+  const rm = new Uint8Array(h * w);
+  for (let col = 0; col < w; col++)
+    for (let row = 0; row < h; row++) rm[row * w + col] = mask[col * h + row];
+
+  const visited = new Uint8Array(h * w);
+  const contours = [];
+
+  // 8-directional neighbour offsets [dx, dy]
+  const dirs = [
+    [1, 0],
+    [1, 1],
+    [0, 1],
+    [-1, 1],
+    [-1, 0],
+    [-1, -1],
+    [0, -1],
+    [1, -1],
+  ];
+
+  for (let row = 0; row < h; row++) {
+    for (let col = 0; col < w; col++) {
+      if (!rm[row * w + col] || visited[row * w + col]) continue;
+      // check if edge pixel
+      const isEdge =
+        col === 0 ||
+        col === w - 1 ||
+        row === 0 ||
+        row === h - 1 ||
+        !rm[row * w + (col - 1)] ||
+        !rm[row * w + (col + 1)] ||
+        !rm[(row - 1) * w + col] ||
+        !rm[(row + 1) * w + col];
+      if (!isEdge) continue;
+
+      // trace contour from this start pixel
+      const contour = [col, row];
+      visited[row * w + col] = 1;
+      let cx = col,
+        cy = row,
+        startDir = 0;
+
+      for (let step = 0; step < 10000; step++) {
+        let found = false;
+        for (let d = 0; d < 8; d++) {
+          const nd = (startDir + d) % 8;
+          const nx = cx + dirs[nd][0];
+          const ny = cy + dirs[nd][1];
+          if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+          if (!rm[ny * w + nx] || visited[ny * w + nx]) continue;
+          const nEdge =
+            nx === 0 ||
+            nx === w - 1 ||
+            ny === 0 ||
+            ny === h - 1 ||
+            !rm[ny * w + (nx - 1)] ||
+            !rm[ny * w + (nx + 1)] ||
+            !rm[(ny - 1) * w + nx] ||
+            !rm[(ny + 1) * w + nx];
+          if (!nEdge) continue;
+          visited[ny * w + nx] = 1;
+          contour.push(nx, ny);
+          cx = nx;
+          cy = ny;
+          startDir = (nd + 6) % 8;
+          found = true;
+          break;
+        }
+        if (!found) break;
+      }
+
+      if (contour.length > 4) contours.push(new Int16Array(contour));
+    }
+  }
+  return contours;
+}
+
+// Call once at load time — returns { contours, w, h }
+function decodeRLEEdges(segmentation) {
+  const { mask, h, w } = decodeRLEMask(segmentation);
+  const contours = traceContours(mask, h, w);
+  return { contours, w, h };
+}
+
+// Draw pre-cached contours as canvas paths — called every frame tick
 function drawRLEEdges(ctx, cached, color, vidX, vidY, targetW, targetH) {
-  const { edges, w, h } = cached;
+  const { contours, w, h } = cached;
   const scaleX = targetW / w;
   const scaleY = targetH / h;
 
-  const offscreen = document.createElement("canvas");
-  offscreen.width = targetW;
-  offscreen.height = targetH;
-  const octx = offscreen.getContext("2d");
-  const imgData = octx.createImageData(targetW, targetH);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
 
-  const r = parseInt(color.slice(1, 3), 16);
-  const g = parseInt(color.slice(3, 5), 16);
-  const b = parseInt(color.slice(5, 7), 16);
-
-  for (let i = 0; i < edges.length; i += 2) {
-    const px = Math.round(edges[i] * scaleX);
-    const py = Math.round(edges[i + 1] * scaleY);
-    if (px >= 0 && px < targetW && py >= 0 && py < targetH) {
-      const idx = (py * targetW + px) * 4;
-      imgData.data[idx] = r;
-      imgData.data[idx + 1] = g;
-      imgData.data[idx + 2] = b;
-      imgData.data[idx + 3] = 220;
+  for (let c = 0; c < contours.length; c++) {
+    const pts = contours[c];
+    if (pts.length < 4) continue;
+    ctx.beginPath();
+    ctx.moveTo(vidX + pts[0] * scaleX, vidY + pts[1] * scaleY);
+    for (let i = 2; i < pts.length; i += 2) {
+      ctx.lineTo(vidX + pts[i] * scaleX, vidY + pts[i + 1] * scaleY);
     }
+    ctx.closePath();
+    ctx.stroke();
   }
-
-  octx.putImageData(imgData, 0, 0);
-  ctx.drawImage(offscreen, vidX, vidY);
 }
