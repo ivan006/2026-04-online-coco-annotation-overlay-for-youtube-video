@@ -86,6 +86,8 @@
           width: 100%;
           height: 100%;
           pointer-events: none;
+          border: 2px dashed rgba(255, 255, 255, 0.4);
+          box-sizing: border-box;
         "
       ></canvas>
     </div>
@@ -112,6 +114,7 @@
 
     <div id="legend" class="d-flex flex-wrap gap-2 mt-2"></div>
 
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
       const COLORS = [
@@ -137,15 +140,15 @@
         rafId = null;
 
       function setStatus(msg) {
-        document.getElementById("status").textContent = msg;
+        $("#status").text(msg);
       }
 
       window.onYouTubeIframeAPIReady = function () {
         ytReady = true;
       };
-      const tag = document.createElement("script");
-      tag.src = "https://www.youtube.com/iframe_api";
-      document.head.appendChild(tag);
+      $("<script>")
+        .attr("src", "https://www.youtube.com/iframe_api")
+        .appendTo("head");
 
       function extractVideoId(url) {
         const m = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
@@ -164,19 +167,19 @@
         annsByFrame = {};
         catMap = {};
         colorMap = {};
-        fps = parseFloat(document.getElementById("fps").value) || 30;
-        (data.categories || []).forEach((c) => {
+        fps = parseFloat($("#fps").val()) || 30;
+        $.each(data.categories || [], (_, c) => {
           catMap[c.id] = c.name;
         });
-        Object.values(catMap).forEach((c, i) => {
+        $.each(Object.values(catMap), (i, c) => {
           colorMap[c] = COLORS[i % COLORS.length];
         });
         const imgMap = {};
-        (data.images || []).forEach((img) => {
+        $.each(data.images || [], (_, img) => {
           const fname = img.extra?.name || img.file_name || "";
           imgMap[img.id] = parseFrameFromFilename(fname);
         });
-        (data.annotations || []).forEach((a) => {
+        $.each(data.annotations || [], (_, a) => {
           const f =
             imgMap[a.image_id] != null ? imgMap[a.image_id] : a.image_id;
           if (!annsByFrame[f]) annsByFrame[f] = [];
@@ -186,12 +189,22 @@
       }
 
       function buildLegend() {
-        const leg = document.getElementById("legend");
-        leg.innerHTML = "";
-        Object.entries(colorMap).forEach(([name, col]) => {
-          leg.innerHTML += `<span class="small text-secondary d-flex align-items-center gap-1">
-      <span style="width:10px;height:10px;background:${col};border-radius:2px;display:inline-block;"></span>${name}
-    </span>`;
+        const $leg = $("#legend").empty();
+        $.each(colorMap, (name, col) => {
+          $leg.append(
+            $("<span>")
+              .addClass("small text-secondary d-flex align-items-center gap-1")
+              .append(
+                $("<span>").css({
+                  width: "10px",
+                  height: "10px",
+                  background: col,
+                  borderRadius: "2px",
+                  display: "inline-block",
+                }),
+                document.createTextNode(name),
+              ),
+          );
         });
       }
 
@@ -202,6 +215,7 @@
         canvas.height = wrap.offsetHeight;
         const ctx = canvas.getContext("2d");
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
         let anns = annsByFrame[frameIdx];
         if (!anns) {
           for (let d = 1; d <= 2; d++) {
@@ -216,16 +230,17 @@
           }
         }
         if (!anns || !anns.length) {
-          document.getElementById("frame-info").textContent =
-            `frame ${frameIdx}`;
+          $("#frame-info").text(`frame ${frameIdx}`);
           return;
         }
-        const showLabels = document.getElementById("show-labels").checked;
+
+        const showLabels = $("#show-labels").is(":checked");
         const refW = cocoData.images?.[0]?.width || 512;
         const refH = cocoData.images?.[0]?.height || 512;
         const scaleX = canvas.width / refW;
         const scaleY = canvas.height / refH;
-        anns.forEach((a) => {
+
+        $.each(anns, (_, a) => {
           const cat = catMap[a.category_id] || String(a.category_id);
           const col = colorMap[cat] || "#fff";
           ctx.strokeStyle = col;
@@ -250,7 +265,7 @@
             const segs = Array.isArray(a.segmentation[0])
               ? a.segmentation
               : [a.segmentation];
-            segs.forEach((seg) => {
+            $.each(segs, (_, seg) => {
               if (!Array.isArray(seg) || seg.length < 6) return;
               ctx.beginPath();
               ctx.moveTo(seg[0] * scaleX, seg[1] * scaleY);
@@ -263,8 +278,8 @@
             });
           }
         });
-        document.getElementById("frame-info").textContent =
-          `frame ${frameIdx} · ${anns.length} ann`;
+
+        $("#frame-info").text(`frame ${frameIdx} · ${anns.length} ann`);
       }
 
       function tick() {
@@ -274,84 +289,73 @@
         }
         const t = player.getCurrentTime();
         drawFrame(Math.round(t * fps));
-        if (!seeking)
-          document.getElementById("seek").value =
-            (t / (player.getDuration() || 1)) * 100;
+        if (!seeking) $("#seek").val((t / (player.getDuration() || 1)) * 100);
         rafId = requestAnimationFrame(tick);
       }
 
-      document
-        .getElementById("load-btn")
-        .addEventListener("click", async () => {
-          const ytUrl = document.getElementById("yt-url").value.trim();
-          const jsonUrl = document.getElementById("json-url").value.trim();
-          if (!ytUrl || !jsonUrl) {
-            setStatus("Please fill in both URLs.");
-            return;
-          }
-          const vid = extractVideoId(ytUrl);
-          if (!vid) {
-            setStatus("Could not parse YouTube video ID.");
-            return;
-          }
-          setStatus("Fetching COCO JSON...");
-          try {
-            const res = await fetch(jsonUrl);
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            cocoData = await res.json();
-          } catch (e) {
-            setStatus("Failed to load JSON: " + e.message);
-            return;
-          }
-          buildFrameMap(cocoData);
-          const frameNums = Object.keys(annsByFrame)
-            .map(Number)
-            .sort((a, b) => a - b);
-          setStatus(
-            `Loaded ${(cocoData.annotations || []).length} annotations · ${frameNums.length} frames · range ${frameNums[0]}–${frameNums[frameNums.length - 1]}`,
-          );
-          document.getElementById("video-wrap").classList.remove("d-none");
-          document.getElementById("ctrl-bar").classList.remove("d-none");
-          fps = parseFloat(document.getElementById("fps").value) || 30;
-          const tryInit = () => {
-            if (!ytReady || typeof YT === "undefined") {
-              setTimeout(tryInit, 200);
-              return;
-            }
-            if (player) player.destroy();
-            player = new YT.Player("player", {
-              videoId: vid,
-              playerVars: { controls: 1, rel: 0, modestbranding: 1 },
-              events: {
-                onReady: () => {
-                  if (rafId) cancelAnimationFrame(rafId);
-                  tick();
+      $("#load-btn").on("click", function () {
+        const ytUrl = $("#yt-url").val().trim();
+        const jsonUrl = $("#json-url").val().trim();
+        if (!ytUrl || !jsonUrl) {
+          setStatus("Please fill in both URLs.");
+          return;
+        }
+        const vid = extractVideoId(ytUrl);
+        if (!vid) {
+          setStatus("Could not parse YouTube video ID.");
+          return;
+        }
+        setStatus("Fetching COCO JSON...");
+        $.getJSON(jsonUrl)
+          .done((data) => {
+            cocoData = data;
+            buildFrameMap(data);
+            const frameNums = Object.keys(annsByFrame)
+              .map(Number)
+              .sort((a, b) => a - b);
+            setStatus(
+              `Loaded ${(data.annotations || []).length} annotations · ${frameNums.length} frames · range ${frameNums[0]}–${frameNums[frameNums.length - 1]}`,
+            );
+            $("#video-wrap").removeClass("d-none");
+            $("#ctrl-bar").removeClass("d-none");
+            fps = parseFloat($("#fps").val()) || 30;
+            const tryInit = () => {
+              if (!ytReady || typeof YT === "undefined") {
+                setTimeout(tryInit, 200);
+                return;
+              }
+              if (player) player.destroy();
+              player = new YT.Player("player", {
+                videoId: vid,
+                playerVars: { controls: 1, rel: 0, modestbranding: 1 },
+                events: {
+                  onReady: () => {
+                    if (rafId) cancelAnimationFrame(rafId);
+                    tick();
+                  },
                 },
-              },
-            });
-          };
-          tryInit();
-        });
+              });
+            };
+            tryInit();
+          })
+          .fail((_, __, err) => setStatus("Failed to load JSON: " + err));
+      });
 
-      document
-        .getElementById("play-btn")
-        .addEventListener("click", () => player && player.playVideo());
-      document
-        .getElementById("pause-btn")
-        .addEventListener("click", () => player && player.pauseVideo());
-      const seekEl = document.getElementById("seek");
-      seekEl.addEventListener("mousedown", () => {
-        seeking = true;
-      });
-      seekEl.addEventListener("input", () => {
-        if (!player || typeof player.getDuration !== "function") return;
-        const t = (seekEl.value / 100) * player.getDuration();
-        player.seekTo(t, true);
-        drawFrame(Math.round(t * fps));
-      });
-      seekEl.addEventListener("mouseup", () => {
-        seeking = false;
-      });
+      $("#play-btn").on("click", () => player && player.playVideo());
+      $("#pause-btn").on("click", () => player && player.pauseVideo());
+      $("#seek")
+        .on("mousedown", () => {
+          seeking = true;
+        })
+        .on("input", function () {
+          if (!player || typeof player.getDuration !== "function") return;
+          const t = ($(this).val() / 100) * player.getDuration();
+          player.seekTo(t, true);
+          drawFrame(Math.round(t * fps));
+        })
+        .on("mouseup", () => {
+          seeking = false;
+        });
     </script>
   </body>
 </html>
