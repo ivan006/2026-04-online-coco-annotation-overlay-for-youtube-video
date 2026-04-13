@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>COCO YouTube Overlay</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --bg: #0f0f0f;
+        --surface: #1a1a1a;
+        --border: #2e2e2e;
+        --text: #e8e8e8;
+        --muted: #888;
+        --accent: #e8e8e8;
+        --radius: 8px;
+      }
+      body {
+        font-family: "Courier New", monospace;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        padding: 2rem;
+      }
+      h1 {
+        font-size: 14px;
+        font-weight: normal;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 1.5rem;
+        border-bottom: 0.5px solid var(--border);
+        padding-bottom: 0.75rem;
+      }
+      .inputs {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 1rem;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .row label {
+        font-size: 11px;
+        color: var(--muted);
+        min-width: 90px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      .row input[type="text"],
+      .row input[type="number"] {
+        flex: 1;
+        font-size: 12px;
+        font-family: "Courier New", monospace;
+        padding: 7px 10px;
+        border: 0.5px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        color: var(--text);
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      .row input:focus {
+        border-color: #555;
+      }
+      .row input[type="number"] {
+        max-width: 80px;
+      }
+      .btn {
+        padding: 7px 16px;
+        font-size: 11px;
+        font-family: "Courier New", monospace;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        border: 0.5px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        color: var(--text);
+        cursor: pointer;
+        transition: background 0.15s;
+        white-space: nowrap;
+      }
+      .btn:hover {
+        background: #252525;
+      }
+      .btn.primary {
+        background: var(--text);
+        color: var(--bg);
+        border-color: var(--text);
+      }
+      .btn.primary:hover {
+        background: #ccc;
+      }
+      .status {
+        font-size: 11px;
+        color: var(--muted);
+        margin-bottom: 10px;
+        min-height: 16px;
+        letter-spacing: 0.05em;
+      }
+      .video-wrap {
+        position: relative;
+        width: 100%;
+        background: #000;
+        border-radius: var(--radius);
+        overflow: hidden;
+        display: none;
+      }
+      #overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+      .controls-bar {
+        display: none;
+        gap: 8px;
+        margin-top: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .frame-info {
+        font-size: 11px;
+        color: var(--muted);
+        margin-left: auto;
+        font-family: "Courier New", monospace;
+        letter-spacing: 0.05em;
+      }
+      input[type="range"] {
+        flex: 1;
+        accent-color: var(--text);
+        cursor: pointer;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+      }
+      .leg-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        color: var(--muted);
+        letter-spacing: 0.05em;
+      }
+      .leg-swatch {
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+      }
+      label.check {
+        font-size: 11px;
+        color: var(--muted);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+      }
+      input[type="checkbox"] {
+        accent-color: var(--text);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>COCO / YouTube Overlay</h1>
+
+    <div class="inputs">
+      <div class="row">
+        <label>YouTube URL</label>
+        <input
+          id="yt-url"
+          type="text"
+          placeholder="https://www.youtube.com/watch?v=..."
+        />
+      </div>
+      <div class="row">
+        <label>COCO JSON URL</label>
+        <input
+          id="json-url"
+          type="text"
+          placeholder="https://raw.githubusercontent.com/..."
+        />
+      </div>
+      <div class="row">
+        <label>FPS</label>
+        <input id="fps" type="number" value="30" min="1" max="60" />
+        <label class="check" style="margin-left: 12px">
+          <input type="checkbox" id="show-labels" checked />
+          Labels
+        </label>
+        <button class="btn primary" id="load-btn" style="margin-left: auto">
+          Load
+        </button>
+      </div>
+    </div>
+
+    <div class="status" id="status">
+      Enter a YouTube URL and COCO JSON URL, then click Load.
+    </div>
+
+    <div class="video-wrap" id="video-wrap">
+      <div id="player"></div>
+      <canvas id="overlay"></canvas>
+    </div>
+
+    <div class="controls-bar" id="ctrl-bar">
+      <button class="btn" id="play-btn">Play</button>
+      <button class="btn" id="pause-btn">Pause</button>
+      <input type="range" id="seek" min="0" max="100" value="0" step="0.1" />
+      <span class="frame-info" id="frame-info">frame —</span>
+    </div>
+
+    <div class="legend" id="legend"></div>
+
+    <script>
+      const COLORS = [
+        "#e74c3c",
+        "#3498db",
+        "#2ecc71",
+        "#f39c12",
+        "#9b59b6",
+        "#1abc9c",
+        "#e67e22",
+        "#34495e",
+        "#e91e63",
+        "#00bcd4",
+      ];
+      let player,
+        cocoData,
+        annsByFrame = {},
+        catMap = {},
+        colorMap = {},
+        fps = 30;
+      let ytReady = false,
+        seeking = false,
+        rafId = null;
+
+      function setStatus(msg) {
+        document.getElementById("status").textContent = msg;
+      }
+
+      window.onYouTubeIframeAPIReady = function () {
+        ytReady = true;
+      };
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      document.head.appendChild(tag);
+
+      function extractVideoId(url) {
+        const m = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+        return m ? m[1] : null;
+      }
+
+      function buildFrameMap(data) {
+        annsByFrame = {};
+        catMap = {};
+        colorMap = {};
+        fps = parseFloat(document.getElementById("fps").value) || 30;
+        (data.categories || []).forEach((c) => {
+          catMap[c.id] = c.name;
+        });
+        const cats = Object.values(catMap);
+        cats.forEach((c, i) => {
+          colorMap[c] = COLORS[i % COLORS.length];
+        });
+        const anns = data.annotations || [];
+        if (data.videos && data.videos.length) {
+          anns.forEach((a) => {
+            const f =
+              a.frame_id != null
+                ? a.frame_id
+                : Math.round((a.timestamp || 0) * fps);
+            if (!annsByFrame[f]) annsByFrame[f] = [];
+            annsByFrame[f].push(a);
+          });
+        } else {
+          const imgMap = {};
+          (data.images || []).forEach((img) => {
+            const f =
+              img.frame_id != null
+                ? img.frame_id
+                : img.file_name
+                  ? parseInt(img.file_name.match(/\d+/)?.[0] || 0)
+                  : img.id;
+            imgMap[img.id] = f;
+          });
+          anns.forEach((a) => {
+            const f =
+              imgMap[a.image_id] != null ? imgMap[a.image_id] : a.image_id;
+            if (!annsByFrame[f]) annsByFrame[f] = [];
+            annsByFrame[f].push(a);
+          });
+        }
+        buildLegend();
+      }
+
+      function buildLegend() {
+        const leg = document.getElementById("legend");
+        leg.innerHTML = "";
+        Object.entries(colorMap).forEach(([name, col]) => {
+          leg.innerHTML += `<div class="leg-item"><div class="leg-swatch" style="background:${col}"></div>${name}</div>`;
+        });
+      }
+
+      function drawFrame(frameIdx) {
+        const canvas = document.getElementById("overlay");
+        const wrap = document.getElementById("video-wrap");
+        canvas.width = wrap.offsetWidth;
+        canvas.height = wrap.offsetHeight;
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const anns = annsByFrame[frameIdx];
+        if (!anns || !anns.length) return;
+        const showLabels = document.getElementById("show-labels").checked;
+        const refW =
+          cocoData.videos?.[0]?.width || cocoData.images?.[0]?.width || 1920;
+        const refH =
+          cocoData.videos?.[0]?.height || cocoData.images?.[0]?.height || 1080;
+        const scaleX = canvas.width / refW;
+        const scaleY = canvas.height / refH;
+        anns.forEach((a) => {
+          const cat = catMap[a.category_id] || String(a.category_id);
+          const col = colorMap[cat] || "#fff";
+          ctx.strokeStyle = col;
+          ctx.lineWidth = 2;
+          ctx.fillStyle = col + "33";
+          if (a.bbox) {
+            const [x, y, w, h] = a.bbox;
+            ctx.strokeRect(x * scaleX, y * scaleY, w * scaleX, h * scaleY);
+            ctx.fillRect(x * scaleX, y * scaleY, w * scaleX, h * scaleY);
+            if (showLabels) {
+              ctx.fillStyle = col;
+              ctx.font = `bold ${Math.max(11, 13 * scaleX)}px monospace`;
+              ctx.fillText(
+                cat,
+                x * scaleX + 3,
+                y * scaleY - 4 > 0 ? y * scaleY - 4 : y * scaleY + 14,
+              );
+            }
+          }
+          if (a.segmentation) {
+            const segs = Array.isArray(a.segmentation[0])
+              ? a.segmentation
+              : [a.segmentation];
+            segs.forEach((seg) => {
+              if (!seg.length) return;
+              ctx.beginPath();
+              ctx.moveTo(seg[0] * scaleX, seg[1] * scaleY);
+              for (let i = 2; i < seg.length; i += 2)
+                ctx.lineTo(seg[i] * scaleX, seg[i + 1] * scaleY);
+              ctx.closePath();
+              ctx.stroke();
+              ctx.fillStyle = col + "44";
+              ctx.fill();
+            });
+          }
+        });
+        document.getElementById("frame-info").textContent = `frame ${frameIdx}`;
+      }
+
+      function tick() {
+        if (!player || typeof player.getCurrentTime !== "function") {
+          rafId = requestAnimationFrame(tick);
+          return;
+        }
+        const t = player.getCurrentTime();
+        const frame = Math.round(t * fps);
+        drawFrame(frame);
+        const dur = player.getDuration() || 1;
+        if (!seeking) document.getElementById("seek").value = (t / dur) * 100;
+        rafId = requestAnimationFrame(tick);
+      }
+
+      document
+        .getElementById("load-btn")
+        .addEventListener("click", async () => {
+          const ytUrl = document.getElementById("yt-url").value.trim();
+          const jsonUrl = document.getElementById("json-url").value.trim();
+          if (!ytUrl || !jsonUrl) {
+            setStatus("Please fill in both URLs.");
+            return;
+          }
+          const vid = extractVideoId(ytUrl);
+          if (!vid) {
+            setStatus("Could not parse YouTube video ID.");
+            return;
+          }
+          setStatus("Fetching COCO JSON...");
+          try {
+            const res = await fetch(jsonUrl);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            cocoData = await res.json();
+          } catch (e) {
+            setStatus(
+              "Failed to load COCO JSON: " +
+                e.message +
+                ". Make sure it is a public raw URL with CORS enabled.",
+            );
+            return;
+          }
+          buildFrameMap(cocoData);
+          setStatus(
+            `Loaded ${(cocoData.annotations || []).length} annotations across ${Object.keys(annsByFrame).length} frames.`,
+          );
+          const wrap = document.getElementById("video-wrap");
+          wrap.style.display = "block";
+          wrap.style.paddingBottom = "56.25%";
+          wrap.style.position = "relative";
+          wrap.style.height = "0";
+          document.getElementById("ctrl-bar").style.display = "flex";
+          const pDiv = document.getElementById("player");
+          pDiv.style.position = "absolute";
+          pDiv.style.top = "0";
+          pDiv.style.left = "0";
+          pDiv.style.width = "100%";
+          pDiv.style.height = "100%";
+          const canvas = document.getElementById("overlay");
+          canvas.style.position = "absolute";
+          canvas.style.top = "0";
+          canvas.style.left = "0";
+          canvas.style.width = "100%";
+          canvas.style.height = "100%";
+          fps = parseFloat(document.getElementById("fps").value) || 30;
+          const tryInit = () => {
+            if (!ytReady || typeof YT === "undefined") {
+              setTimeout(tryInit, 200);
+              return;
+            }
+            if (player) player.destroy();
+            player = new YT.Player("player", {
+              videoId: vid,
+              playerVars: { controls: 1, rel: 0, modestbranding: 1 },
+              events: {
+                onReady: () => {
+                  if (rafId) cancelAnimationFrame(rafId);
+                  tick();
+                },
+              },
+            });
+          };
+          tryInit();
+        });
+
+      document
+        .getElementById("play-btn")
+        .addEventListener("click", () => player && player.playVideo());
+      document
+        .getElementById("pause-btn")
+        .addEventListener("click", () => player && player.pauseVideo());
+      const seekEl = document.getElementById("seek");
+      seekEl.addEventListener("mousedown", () => {
+        seeking = true;
+      });
+      seekEl.addEventListener("input", () => {
+        if (!player || typeof player.getDuration !== "function") return;
+        const t = (seekEl.value / 100) * player.getDuration();
+        player.seekTo(t, true);
+        drawFrame(Math.round(t * fps));
+      });
+      seekEl.addEventListener("mouseup", () => {
+        seeking = false;
+      });
+    </script>
+  </body>
+</html>
