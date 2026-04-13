@@ -102,6 +102,15 @@ $(document).ready(function () {
     $.each(data.annotations || [], (_, a) => {
       const f = imgMap[a.image_id] != null ? imgMap[a.image_id] : a.image_id;
       if (!annsByFrame[f]) annsByFrame[f] = [];
+      // pre-decode RLE into edge pixel list at load time
+      if (
+        a.segmentation &&
+        typeof a.segmentation === "object" &&
+        !Array.isArray(a.segmentation) &&
+        a.segmentation.counts
+      ) {
+        a._rleEdges = decodeRLEEdges(a.segmentation);
+      }
       annsByFrame[f].push(a);
     });
     buildLegend();
@@ -206,24 +215,9 @@ $(document).ready(function () {
           ctx.stroke();
         });
       }
-      // RLE segmentation
-      if (
-        a.segmentation &&
-        typeof a.segmentation === "object" &&
-        !Array.isArray(a.segmentation) &&
-        a.segmentation.counts
-      ) {
-        drawRLEMask(
-          ctx,
-          a.segmentation,
-          col,
-          vidX,
-          vidY,
-          canvas.width,
-          canvas.height,
-          targetW,
-          targetH,
-        );
+      // RLE segmentation — use pre-cached edge pixels
+      if (a._rleEdges) {
+        drawRLEEdges(ctx, a._rleEdges, col, vidX, vidY, targetW, targetH);
       }
     });
 
