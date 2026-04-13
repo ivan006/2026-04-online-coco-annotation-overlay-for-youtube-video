@@ -66,14 +66,26 @@ function drawRLEMask(
   const b = parseInt(color.slice(5, 7), 16);
 
   // COCO mask is column-major (col * h + row), imageData is row-major (row * w + col)
+  // draw outline only: only paint pixels that are on the edge (have a background neighbour)
   for (let col = 0; col < w; col++) {
     for (let row = 0; row < h; row++) {
       if (mask[col * h + row]) {
-        const px = (row * w + col) * 4;
-        imgData.data[px] = r;
-        imgData.data[px + 1] = g;
-        imgData.data[px + 2] = b;
-        imgData.data[px + 3] = 120;
+        const isEdge =
+          col === 0 ||
+          col === w - 1 ||
+          row === 0 ||
+          row === h - 1 ||
+          !mask[(col - 1) * h + row] ||
+          !mask[(col + 1) * h + row] ||
+          !mask[col * h + (row - 1)] ||
+          !mask[col * h + (row + 1)];
+        if (isEdge) {
+          const px = (row * w + col) * 4;
+          imgData.data[px] = r;
+          imgData.data[px + 1] = g;
+          imgData.data[px + 2] = b;
+          imgData.data[px + 3] = 220;
+        }
       }
     }
   }
