@@ -39,7 +39,7 @@
         value="https://raw.githubusercontent.com/ivan006/2026-04-spatial-awareness-for-football-using-fiftyone/refs/heads/main/dataset/test/train/_annotations.coco.json"
       />
     </div>
-    <div class="d-flex align-items-center gap-2 mb-2">
+    <div class="d-flex align-items-center gap-2 mb-3">
       <label class="text-secondary small" style="min-width: 110px">FPS</label>
       <input
         id="fps"
@@ -64,37 +64,55 @@
       <button id="load-btn" class="btn btn-sm btn-light ms-auto">Load</button>
     </div>
 
-    <!-- Video reference size (pixels) — defaults to standard 1280x720 YT -->
-    <div class="d-flex align-items-center gap-2 mb-2">
+    <!-- Ref size = annotation coordinate space (your COCO images are 512x512).
+     Decrease to zoom boxes in, increase to zoom out. -->
+    <div class="d-flex align-items-center gap-2 mb-1">
       <label class="text-secondary small" style="min-width: 110px"
-        >Video width px</label
+        >Output width px</label
       >
       <input
-        id="ref-w"
-        type="number"
+        type="range"
+        id="ref-w-slider"
+        min="100"
+        max="3840"
+        step="1"
         value="1280"
-        min="1"
-        class="form-control form-control-sm bg-black text-light border-secondary"
-        style="max-width: 90px"
+        class="form-range flex-grow-1"
       />
-      <label class="text-secondary small ms-3" style="min-width: 110px"
-        >Video height px</label
+      <input
+        type="number"
+        id="ref-w"
+        min="100"
+        max="3840"
+        value="1280"
+        class="form-control form-control-sm bg-black text-light border-secondary"
+        style="max-width: 80px"
+      />
+    </div>
+    <div class="d-flex align-items-center gap-2 mb-3">
+      <label class="text-secondary small" style="min-width: 110px"
+        >Output height px</label
       >
       <input
-        id="ref-h"
+        type="range"
+        id="ref-h-slider"
+        min="100"
+        max="2160"
+        step="1"
+        value="590"
+        class="form-range flex-grow-1"
+      />
+      <input
         type="number"
-        value="720"
-        min="1"
+        id="ref-h"
+        min="100"
+        max="2160"
+        value="590"
         class="form-control form-control-sm bg-black text-light border-secondary"
-        style="max-width: 90px"
+        style="max-width: 80px"
       />
     </div>
 
-    <p id="status" class="text-secondary small mb-2">
-      Enter URLs above then click Load.
-    </p>
-
-    <!-- Playback controls -->
     <div id="ctrl-bar" class="d-none d-flex align-items-center gap-2 mb-2">
       <button id="play-btn" class="btn btn-sm btn-outline-light">Play</button>
       <button id="pause-btn" class="btn btn-sm btn-outline-light">Pause</button>
@@ -115,18 +133,26 @@
       >
     </div>
 
-    <!-- Legend -->
     <div id="legend" class="d-flex flex-wrap gap-2 mb-2"></div>
 
-    <!-- Video -->
     <div
       id="video-wrap"
       class="d-none position-relative w-100 bg-black rounded"
-      style="height: 720px"
+      style="
+        height: 720px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      "
     >
       <div
         id="player"
-        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%"
+        style="
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+        "
       ></div>
       <canvas
         id="overlay"
@@ -178,6 +204,31 @@
       $("<script>")
         .attr("src", "https://www.youtube.com/iframe_api")
         .appendTo("head");
+
+      // keep slider and number input in sync
+      $("#ref-w-slider").on("input", function () {
+        $("#ref-w").val($(this).val());
+        syncPlayerSize();
+      });
+      $("#ref-w").on("input", function () {
+        $("#ref-w-slider").val($(this).val());
+        syncPlayerSize();
+      });
+      $("#ref-h-slider").on("input", function () {
+        $("#ref-h").val($(this).val());
+        syncPlayerSize();
+      });
+      $("#ref-h").on("input", function () {
+        $("#ref-h-slider").val($(this).val());
+        syncPlayerSize();
+      });
+
+      function syncPlayerSize() {
+        const w = parseFloat($("#ref-w").val()) || 1280;
+        const h = parseFloat($("#ref-h").val()) || 590;
+        $("#player").width(w).height(h);
+        $("#player iframe").width(w).height(h);
+      }
 
       function extractVideoId(url) {
         const m = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
@@ -264,10 +315,14 @@
         }
 
         const showLabels = $("#show-labels").is(":checked");
-        const refW = parseFloat($("#ref-w").val()) || 1280;
-        const refH = parseFloat($("#ref-h").val()) || 720;
-        const scaleX = canvas.width / refW;
-        const scaleY = canvas.height / refH;
+        const annW = cocoData.images?.[0]?.width || 512;
+        const annH = cocoData.images?.[0]?.height || 512;
+        const targetW = parseFloat($("#ref-w").val()) || 512;
+        const targetH = parseFloat($("#ref-h").val()) || 512;
+        const scaleX = targetW / annW;
+        const scaleY = targetH / annH;
+        const vidX = (canvas.width - targetW) / 2;
+        const vidY = (canvas.height - targetH) / 2;
 
         $.each(anns, (_, a) => {
           const cat = catMap[a.category_id] || String(a.category_id);
@@ -276,9 +331,11 @@
           ctx.lineWidth = 2;
           if (a.bbox) {
             const [x, y, w, h] = a.bbox;
+            const dx = vidX + x * scaleX,
+              dy = vidY + y * scaleY;
             ctx.fillStyle = col + "28";
-            ctx.fillRect(x * scaleX, y * scaleY, w * scaleX, h * scaleY);
-            ctx.strokeRect(x * scaleX, y * scaleY, w * scaleX, h * scaleY);
+            ctx.fillRect(dx, dy, w * scaleX, h * scaleY);
+            ctx.strokeRect(dx, dy, w * scaleX, h * scaleY);
             if (showLabels) {
               const fs = Math.max(
                 11,
@@ -286,8 +343,8 @@
               );
               ctx.font = `bold ${fs}px monospace`;
               ctx.fillStyle = col;
-              const ty = y * scaleY > 14 ? y * scaleY - 4 : y * scaleY + fs + 2;
-              ctx.fillText(cat, x * scaleX + 3, ty);
+              const ty = dy > 14 ? dy - 4 : dy + fs + 2;
+              ctx.fillText(cat, dx + 3, ty);
             }
           }
           if (Array.isArray(a.segmentation) && a.segmentation.length) {
@@ -297,9 +354,9 @@
             $.each(segs, (_, seg) => {
               if (!Array.isArray(seg) || seg.length < 6) return;
               ctx.beginPath();
-              ctx.moveTo(seg[0] * scaleX, seg[1] * scaleY);
+              ctx.moveTo(vidX + seg[0] * scaleX, vidY + seg[1] * scaleY);
               for (let i = 2; i < seg.length; i += 2)
-                ctx.lineTo(seg[i] * scaleX, seg[i + 1] * scaleY);
+                ctx.lineTo(vidX + seg[i] * scaleX, vidY + seg[i + 1] * scaleY);
               ctx.closePath();
               ctx.fillStyle = col + "44";
               ctx.fill();
@@ -359,6 +416,7 @@
                 playerVars: { controls: 1, rel: 0, modestbranding: 1 },
                 events: {
                   onReady: () => {
+                    syncPlayerSize();
                     if (rafId) cancelAnimationFrame(rafId);
                     tick();
                   },
