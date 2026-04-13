@@ -1,4 +1,9 @@
 $(document).ready(function () {
+  // pre-fill from URL params: ?yt=...&json=...
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("yt")) $("#yt-url").val(params.get("yt"));
+  if (params.get("json")) $("#json-url").val(params.get("json"));
+
   const COLORS = [
     "#e74c3c",
     "#3498db",
@@ -16,7 +21,7 @@ $(document).ready(function () {
     annsByFrame = {},
     catMap = {},
     colorMap = {},
-    fps = 30;
+    fps = 60;
   let ytReady = false,
     seeking = false,
     rafId = null;
@@ -100,6 +105,8 @@ $(document).ready(function () {
       annsByFrame[f].push(a);
     });
     buildLegend();
+    const maxF = Math.max(...Object.keys(annsByFrame).map(Number));
+    console.log(`Max frame number from filenames: ${maxF}`);
   }
 
   function buildLegend() {
@@ -182,6 +189,7 @@ $(document).ready(function () {
           ctx.fillText(cat, dx + 3, ty);
         }
       }
+      // polygon segmentation
       if (Array.isArray(a.segmentation) && a.segmentation.length) {
         const segs = Array.isArray(a.segmentation[0])
           ? a.segmentation
@@ -197,6 +205,25 @@ $(document).ready(function () {
           ctx.fill();
           ctx.stroke();
         });
+      }
+      // RLE segmentation
+      if (
+        a.segmentation &&
+        typeof a.segmentation === "object" &&
+        !Array.isArray(a.segmentation) &&
+        a.segmentation.counts
+      ) {
+        drawRLEMask(
+          ctx,
+          a.segmentation,
+          col,
+          vidX,
+          vidY,
+          canvas.width,
+          canvas.height,
+          targetW,
+          targetH,
+        );
       }
     });
 
@@ -226,6 +253,8 @@ $(document).ready(function () {
       setStatus("Could not parse YouTube video ID.");
       return;
     }
+    const params = new URLSearchParams({ yt: ytUrl, json: jsonUrl });
+    history.replaceState(null, "", "?" + params.toString());
     setStatus("Fetching COCO JSON...");
     $.getJSON(jsonUrl)
       .done((data) => {
@@ -254,14 +283,6 @@ $(document).ready(function () {
             events: {
               onReady: () => {
                 syncPlayerSize();
-                const frameNums = Object.keys(annsByFrame).map(Number);
-                const maxFrame = Math.max(...frameNums);
-                const dur = player.getDuration();
-                if (dur > 0) {
-                  fps = maxFrame / dur;
-                  $("#fps").val(Math.round(fps));
-                  $("#fps-slider").val(Math.round(fps));
-                }
                 if (rafId) cancelAnimationFrame(rafId);
                 tick();
               },

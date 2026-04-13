@@ -25,7 +25,7 @@
         id="yt-url"
         type="text"
         class="form-control form-control-sm bg-black text-light border-secondary"
-        value="https://youtu.be/6Miv3OV_XnY"
+        placeholder="https://www.youtube.com/watch?v=..."
       />
     </div>
 
@@ -37,7 +37,7 @@
         id="json-url"
         type="text"
         class="form-control form-control-sm bg-black text-light border-secondary"
-        value="https://raw.githubusercontent.com/ivan006/2026-04-spatial-awareness-for-football-using-fiftyone/refs/heads/main/dataset/test/train/_annotations.coco.json"
+        placeholder="https://raw.githubusercontent.com/..."
       />
     </div>
 
@@ -49,13 +49,13 @@
         min="1"
         max="120"
         step="1"
-        value="30"
+        value="60"
         class="form-range flex-grow-1"
       />
       <input
         id="fps"
         type="number"
-        value="30"
+        value="60"
         min="1"
         max="120"
         class="form-control form-control-sm bg-black text-light border-secondary"
@@ -64,8 +64,9 @@
     </div>
     <p class="text-secondary mb-2" style="font-size: 11px; padding-left: 118px">
       Right-click video → <em>Stats for nerds</em> →
-      <em>Viewport / Frames</em> → last number e.g. "0 dropped of
-      <strong>47</strong>"
+      <em>Current / Optimal Res</em> → number after @ e.g.
+      "1280x590@<strong>27</strong>". Note: if using Roboflow, try
+      <strong>60</strong> — it resamples to 60fps internally.
     </p>
 
     <div class="d-flex align-items-center gap-2 mb-1">
@@ -203,6 +204,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="rle.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
