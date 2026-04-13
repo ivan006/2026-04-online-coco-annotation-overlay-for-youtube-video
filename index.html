@@ -10,163 +10,180 @@
     />
   </head>
   <body class="bg-dark text-light p-3">
-    <p
-      class="text-uppercase text-secondary small mb-3"
-      style="letter-spacing: 0.1em"
-    >
-      COCO / YouTube Overlay
-    </p>
-
     <div class="d-flex align-items-center gap-2 mb-2">
-      <label class="text-secondary small" style="min-width: 110px"
-        >YouTube URL</label
+      <p
+        class="text-uppercase text-secondary small mb-0"
+        style="letter-spacing: 0.1em"
       >
-      <input
-        id="yt-url"
-        type="text"
-        class="form-control form-control-sm bg-black text-light border-secondary"
-        placeholder="https://www.youtube.com/watch?v=..."
-      />
-    </div>
-
-    <div class="d-flex align-items-center gap-2 mb-2">
-      <label class="text-secondary small" style="min-width: 110px"
-        >COCO JSON URL</label
+        COCO / YouTube Overlay
+      </p>
+      <button
+        class="btn btn-sm btn-outline-secondary ms-auto"
+        id="toggle-config"
       >
-      <input
-        id="json-url"
-        type="text"
-        class="form-control form-control-sm bg-black text-light border-secondary"
-        placeholder="https://raw.githubusercontent.com/..."
-      />
+        Config
+      </button>
     </div>
 
-    <div class="d-flex align-items-center gap-2 mb-1">
-      <label class="text-secondary small" style="min-width: 110px">FPS</label>
-      <input
-        type="range"
-        id="fps-slider"
-        min="1"
-        max="120"
-        step="1"
-        value="60"
-        class="form-range flex-grow-1"
-      />
-      <input
-        id="fps"
-        type="number"
-        value="60"
-        min="1"
-        max="120"
-        class="form-control form-control-sm bg-black text-light border-secondary"
-        style="max-width: 80px"
-      />
-    </div>
-    <p class="text-secondary mb-2" style="font-size: 11px; padding-left: 118px">
-      Right-click video → <em>Stats for nerds</em> →
-      <em>Current / Optimal Res</em> → number after @ e.g.
-      "1280x590@<strong>27</strong>". Note: if using Roboflow, try
-      <strong>60</strong> — it resamples to 60fps internally.
-    </p>
-
-    <div class="d-flex align-items-center gap-2 mb-1">
-      <label class="text-secondary small" style="min-width: 110px"
-        >Output width px</label
-      >
-      <input
-        type="range"
-        id="ref-w-slider"
-        min="100"
-        max="3840"
-        step="1"
-        value="1280"
-        class="form-range flex-grow-1"
-      />
-      <input
-        type="number"
-        id="ref-w"
-        min="100"
-        max="3840"
-        value="1280"
-        class="form-control form-control-sm bg-black text-light border-secondary"
-        style="max-width: 80px"
-      />
-    </div>
-    <p class="text-secondary mb-2" style="font-size: 11px; padding-left: 118px">
-      Right-click video → <em>Stats for nerds</em> →
-      <em>Current / Optimal Res</em> → first number e.g.
-      "<strong>1280</strong>x590"
-    </p>
-
-    <div class="d-flex align-items-center gap-2 mb-1">
-      <label class="text-secondary small" style="min-width: 110px"
-        >Output height px</label
-      >
-      <input
-        type="range"
-        id="ref-h-slider"
-        min="100"
-        max="2160"
-        step="1"
-        value="590"
-        class="form-range flex-grow-1"
-      />
-      <input
-        type="number"
-        id="ref-h"
-        min="100"
-        max="2160"
-        value="590"
-        class="form-control form-control-sm bg-black text-light border-secondary"
-        style="max-width: 80px"
-      />
-    </div>
-    <p class="text-secondary mb-2" style="font-size: 11px; padding-left: 118px">
-      Right-click video → <em>Stats for nerds</em> →
-      <em>Current / Optimal Res</em> → second number e.g.
-      "1280x<strong>590</strong>"
-    </p>
-
-    <div class="d-flex align-items-center gap-2 mb-3">
-      <div class="form-check ms-0 mb-0">
-        <input
-          class="form-check-input"
-          type="checkbox"
-          id="show-labels"
-          checked
-        />
-        <label class="form-check-label small text-secondary" for="show-labels"
-          >Labels</label
+    <div id="config-panel">
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <label class="text-secondary small" style="min-width: 110px"
+          >YouTube URL</label
         >
-      </div>
-      <div class="form-check ms-2 mb-0">
         <input
-          class="form-check-input"
-          type="checkbox"
-          id="show-masks"
-          checked
+          id="yt-url"
+          type="text"
+          class="form-control form-control-sm bg-black text-light border-secondary"
+          placeholder="https://www.youtube.com/watch?v=..."
         />
-        <label class="form-check-label small text-secondary" for="show-masks"
-          >Masks</label
-        >
       </div>
-      <div class="form-check ms-2 mb-0">
+
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <label class="text-secondary small" style="min-width: 110px"
+          >COCO JSON URL</label
+        >
         <input
-          class="form-check-input"
-          type="checkbox"
-          id="show-boxes"
-          checked
+          id="json-url"
+          type="text"
+          class="form-control form-control-sm bg-black text-light border-secondary"
+          placeholder="https://raw.githubusercontent.com/..."
         />
-        <label class="form-check-label small text-secondary" for="show-boxes"
-          >Boxes</label
-        >
       </div>
-      <button id="load-btn" class="btn btn-sm btn-light ms-auto">Load</button>
+
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <label class="text-secondary small" style="min-width: 110px">FPS</label>
+        <input
+          type="range"
+          id="fps-slider"
+          min="1"
+          max="120"
+          step="1"
+          value="60"
+          class="form-range flex-grow-1"
+        />
+        <input
+          id="fps"
+          type="number"
+          value="60"
+          min="1"
+          max="120"
+          class="form-control form-control-sm bg-black text-light border-secondary"
+          style="max-width: 80px"
+        />
+      </div>
+      <p
+        class="text-secondary mb-2"
+        style="font-size: 11px; padding-left: 118px"
+      >
+        Right-click video → <em>Stats for nerds</em> →
+        <em>Current / Optimal Res</em> → number after @ e.g.
+        "1280x590@<strong>27</strong>". Note: if using Roboflow, try
+        <strong>60</strong> — it resamples to 60fps internally.
+      </p>
+
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <label class="text-secondary small" style="min-width: 110px"
+          >Output width px</label
+        >
+        <input
+          type="range"
+          id="ref-w-slider"
+          min="100"
+          max="3840"
+          step="1"
+          value="1280"
+          class="form-range flex-grow-1"
+        />
+        <input
+          type="number"
+          id="ref-w"
+          min="100"
+          max="3840"
+          value="1280"
+          class="form-control form-control-sm bg-black text-light border-secondary"
+          style="max-width: 80px"
+        />
+      </div>
+      <p
+        class="text-secondary mb-2"
+        style="font-size: 11px; padding-left: 118px"
+      >
+        Right-click video → <em>Stats for nerds</em> →
+        <em>Current / Optimal Res</em> → first number e.g.
+        "<strong>1280</strong>x590"
+      </p>
+
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <label class="text-secondary small" style="min-width: 110px"
+          >Output height px</label
+        >
+        <input
+          type="range"
+          id="ref-h-slider"
+          min="100"
+          max="2160"
+          step="1"
+          value="590"
+          class="form-range flex-grow-1"
+        />
+        <input
+          type="number"
+          id="ref-h"
+          min="100"
+          max="2160"
+          value="590"
+          class="form-control form-control-sm bg-black text-light border-secondary"
+          style="max-width: 80px"
+        />
+      </div>
+      <p
+        class="text-secondary mb-3"
+        style="font-size: 11px; padding-left: 118px"
+      >
+        Right-click video → <em>Stats for nerds</em> →
+        <em>Current / Optimal Res</em> → second number e.g.
+        "1280x<strong>590</strong>"
+      </p>
+
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <div class="form-check ms-0 mb-0">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="show-labels"
+            checked
+          />
+          <label class="form-check-label small text-secondary" for="show-labels"
+            >Labels</label
+          >
+        </div>
+        <div class="form-check ms-2 mb-0">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="show-masks"
+            checked
+          />
+          <label class="form-check-label small text-secondary" for="show-masks"
+            >Masks</label
+          >
+        </div>
+        <div class="form-check ms-2 mb-0">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="show-boxes"
+            checked
+          />
+          <label class="form-check-label small text-secondary" for="show-boxes"
+            >Boxes</label
+          >
+        </div>
+        <button id="load-btn" class="btn btn-sm btn-light ms-auto">Load</button>
+      </div>
     </div>
 
-    <p id="status" class="text-secondary small mb-2">
-      Enter URLs above then click Load.
-    </p>
+    <p id="status" class="text-secondary small mb-2"></p>
 
     <div id="ctrl-bar" class="d-none d-flex align-items-center gap-2 mb-2">
       <button id="play-btn" class="btn btn-sm btn-outline-light">Play</button>

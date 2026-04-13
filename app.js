@@ -4,6 +4,23 @@ $(document).ready(function () {
   if (params.get("yt")) $("#yt-url").val(params.get("yt"));
   if (params.get("json")) $("#json-url").val(params.get("json"));
 
+  // hide config if params provided, show otherwise
+  if (params.get("yt") && params.get("json")) {
+    $("#config-panel").hide();
+    $("#toggle-config").text("Config");
+  } else {
+    $("#config-panel").show();
+  }
+
+  // config toggle
+  $("#toggle-config").on("click", function () {
+    $("#config-panel").toggle();
+  });
+
+  // auto-load if both params present
+  if (params.get("yt") && params.get("json")) {
+    setTimeout(() => $("#load-btn").trigger("click"), 300);
+  }
   const COLORS = [
     "#e74c3c",
     "#3498db",
